@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeoCard Fusion | IOPn</title>
+
+  <!-- Web3Modal + ethers via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --border: #2a2a3a;
+      --accent: #7c5cfc;
+      --accent2: #c06efd;
+      --text: #e8e8f0;
+      --muted: #6b6b80;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --gold: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.2rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 1.2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-icon { font-size: 1.5rem; }
+
+    #connectBtn {
+      padding: 0.55rem 1.3rem;
+      border-radius: 10px;
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #connectBtn:hover { background: var(--accent); color: #fff; }
+    #connectBtn.connected {
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    /* ── Main layout ── */
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* ── Section headers ── */
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Cards grid ── */
+    #cardsSection { margin-bottom: 2.5rem; }
+
+    #cardsGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .neocard {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 1.2rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      user-select: none;
+    }
+
+    .neocard:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+    .neocard.selected {
+      border-color: var(--accent);
+      background: #1a1530;
+      box-shadow: 0 0 0 3px rgba(124,92,252,0.25);
+    }
+
+    .neocard.selected::after {
+      content: '✓';
+      position: absolute;
+      top: 0.6rem;
+      right: 0.8rem;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .card-id {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .card-tier {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-bottom: 0.8rem;
+    }
+
+    .tier-0 { background: #1e1e2e; color: #888; }
+    .tier-1 { background: #2d1f0a; color: #cd7f32; }
+    .tier-2 { background: #1a2a2a; color: #a8d8d8; }
+    .tier-3 { background: #2a2510; color: var(--gold); }
+    .tier-4 { background: #1a1a2e; color: #a0c0e0; }
+    .tier-5 { background: #2a1a2e; color: var(--accent2); }
+
+    .card-stat {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      padding: 0.3rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-stat:last-child { border-bottom: none; }
+    .card-stat span:first-child { color: var(--muted); }
+    .card-stat span:last-child { font-weight: 600; }
+
+    /* ── Fusion panel ── */
+    #fusionPanel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.8rem;
+    }
+
+    .fusion-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .fusion-slot {
+      flex: 1;
+      background: var(--bg);
+      border: 2px dashed var(--border);
+      border-radius: 14px;
+      padding: 1rem;
+      text-align: center;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .fusion-slot.filled {
+      border-style: solid;
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .fusion-arrow {
+      font-size: 1.8rem;
+      color: var(--accent);
+    }
+
+    /* ── Preview box ── */
+    #previewBox {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
+    #previewBox.visible { display: block; }
+
+    .preview-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.88rem;
+      padding: 0.35rem 0;
+    }
+    .preview-row span:first-child { color: var(--muted); }
+    .preview-row .highlight { color: var(--accent2); font-weight: 700; }
+
+    /* ── Fuse button ── */
+    #fuseBtn {
+      width: 100%;
+      padding: 0.9rem;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    #fuseBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+    #fuseBtn:not(:disabled):hover { opacity: 0.88; }
+
+    /* ── Status / toast ── */
+    #status {
+      margin-top: 1rem;
+      padding: 0.8rem 1rem;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      display: none;
+    }
+    #status.info    { display: block; background: #1a1a2e; color: #a0c0ff; border: 1px solid #2a2a4e; }
+    #status.success { display: block; background: #0d2010; color: var(--success); border: 1px solid #1a4020; }
+    #status.error   { display: block; background: #2a1010; color: var(--danger); border: 1px solid #4a2020; }
+
+    /* ── Empty / not connected states ── */
+    .empty-state {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+
+    /* ── Config note ── */
+    #configNote {
+      background: #1a1510;
+      border: 1px solid #3a2a10;
+      border-radius: 10px;
+      padding: 0.8rem 1rem;
+      font-size: 0.82rem;
+      color: var(--gold);
+      margin-bottom: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-icon">⚡</span>
+    NeoCard Fusion
+  </div>
+  <button id="connectBtn">Connect Wallet</button>
+</header>
+
+<main>
+
+  <div id="configNote">
+    ⚙️ <strong>Config:</strong> Update <code>CONTRACT_ADDRESSES</code> in this file after deploying your contracts.
+    Currently set to placeholder addresses for local testing.
+  </div>
+
+  <!-- Cards -->
+  <section id="cardsSection">
+    <div class="section-title">Your NeoCards — select two to fuse</div>
+    <div id="cardsGrid">
+      <div class="empty-state">
+        <div class="icon">🪪</div>
+        Connect your wallet to see your NeoCards
+      </div>
+    </div>
+  </section>
+
+  <!-- Fusion Panel -->
+  <section>
+    <div class="section-title">Fusion Chamber</div>
+    <div id="fusionPanel">
+
+      <div class="fusion-row">
+        <div class="fusion-slot" id="slotA">
+          <div style="font-size:1.5rem;margin-bottom:0.3rem">🃏</div>
+          Select Card A
+        </div>
+
+        <div class="fusion-arrow">⚡</div>
+
+        <div class="fusion-slot" id="slotB">
+          <div style="font-size:1.5rem;margin-bottom:0.3rem">🃏</div>
+          Select Card B
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div id="previewBox">
+        <div class="section-title" style="margin-bottom:0.6rem">Fusion Preview</div>
+        <div class="preview-row">
+          <span>Combined NeoPoints</span>
+          <span class="highlight" id="prevPoints">—</span>
+        </div>
+        <div class="preview-row">
+          <span>Combined Badges</span>
+          <span class="highlight" id="prevBadges">—</span>
+        </div>
+        <div class="preview-row">
+          <span>Projected Tier</span>
+          <span class="highlight" id="prevTier">—</span>
+        </div>
+        <div class="preview-row">
+          <span>Fusion Bonus</span>
+          <span id="prevBonus" style="color:var(--success);font-weight:600">—</span>
+        </div>
+      </div>
+
+      <button id="fuseBtn" disabled>Select 2 cards to fuse</button>
+      <div id="status"></div>
+
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ─── CONFIG — update these after deploying ────────────────────────────────────
+const CONTRACT_ADDRESSES = {
+  NeoCard:       "0x0000000000000000000000000000000000000000", // replace after deploy
+  NeoCardFusion: "0x0000000000000000000000000000000000000000", // replace after deploy
+};
+
+const NEOCARD_ABI = [
+  "function balanceOf(address owner) view returns (uint256)",
+  "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+  "function getCardData(uint256 tokenId) view returns (tuple(uint256 neoPoints, uint256 badgeCount, uint8 tier, uint256 mintedAt))",
+  "function tierOf(uint256 tokenId) view returns (uint8)",
+  "function approve(address to, uint256 tokenId)",
+  "function isApprovedForAll(address owner, address operator) view returns (bool)",
+  "function setApprovalForAll(address operator, bool approved)",
+];
+
+const FUSION_ABI = [
+  "function fuse(uint256 tokenA, uint256 tokenB) returns (uint256)",
+  "function previewFusion(uint256 tokenA, uint256 tokenB) view returns (uint256 mergedPoints, uint256 mergedBadges, uint8 projectedTier)",
+  "function fusionBonus() view returns (uint256)",
+];
+
+const TIER_NAMES = ["Starter", "Bronze", "Silver", "Gold", "Platinum", "Elite"];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let provider, signer, userAddress;
+let neoCardContract, fusionContract;
+let selectedCards = []; // max 2 token IDs
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
+const connectBtn  = document.getElementById("connectBtn");
+const cardsGrid   = document.getElementById("cardsGrid");
+const fuseBtn     = document.getElementById("fuseBtn");
+const statusEl    = document.getElementById("status");
+const slotA       = document.getElementById("slotA");
+const slotB       = document.getElementById("slotB");
+const previewBox  = document.getElementById("previewBox");
+
+// ─── Wallet connection ────────────────────────────────────────────────────────
+connectBtn.addEventListener("click", async () => {
+  if (!window.ethereum) {
+    showStatus("MetaMask (or another injected wallet) not detected. Please install it.", "error");
+    return;
+  }
+  try {
+    showStatus("Connecting wallet...", "info");
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    signer = await provider.getSigner();
+    userAddress = await signer.getAddress();
+
+    connectBtn.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+    connectBtn.classList.add("connected");
+
+    neoCardContract = new ethers.Contract(CONTRACT_ADDRESSES.NeoCard, NEOCARD_ABI, signer);
+    fusionContract  = new ethers.Contract(CONTRACT_ADDRESSES.NeoCardFusion, FUSION_ABI, signer);
+
+    showStatus("Wallet connected. Loading your NeoCards...", "info");
+    await loadCards();
+    clearStatus();
+  } catch (err) {
+    showStatus("Connection failed: " + err.message, "error");
+  }
+});
+
+// ─── Load NeoCards ────────────────────────────────────────────────────────────
+async function loadCards() {
+  cardsGrid.innerHTML = "";
+  selectedCards = [];
+  updateSlots();
+
+  try {
+    const balance = await neoCardContract.balanceOf(userAddress);
+    const count = Number(balance);
+
+    if (count === 0) {
+      cardsGrid.innerHTML = `<div class="empty-state"><div class="icon">🪪</div>You have no NeoCards yet.<br>Earn NeoPoints by staking $OPN to get started.</div>`;
+      return;
+    }
+
+    for (let i = 0; i < count; i++) {
+      const tokenId = await neoCardContract.tokenOfOwnerByIndex(userAddress, i);
+      const data    = await neoCardContract.getCardData(tokenId);
+      renderCard(Number(tokenId), data);
+    }
+  } catch (err) {
+    cardsGrid.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div>Could not load cards.<br><small>${err.message}</small></div>`;
+  }
+}
+
+// ─── Render a single card ─────────────────────────────────────────────────────
+function renderCard(tokenId, data) {
+  const tier     = Number(data.tier);
+  const points   = Number(data.neoPoints).toLocaleString();
+  const badges   = Number(data.badgeCount);
+  const tierName = TIER_NAMES[tier] || "Unknown";
+  const minted   = new Date(Number(data.mintedAt) * 1000).toLocaleDateString();
+
+  const el = document.createElement("div");
+  el.className = "neocard";
+  el.dataset.tokenId = tokenId;
+  el.innerHTML = `
+    <div class="card-id">Token #${tokenId}</div>
+    <span class="card-tier tier-${tier}">${tierName}</span>
+    <div class="card-stat"><span>NeoPoints</span><span>${points}</span></div>
+    <div class="card-stat"><span>Badges</span><span>${badges}</span></div>
+    <div class="card-stat"><span>Minted</span><span>${minted}</span></div>
+  `;
+
+  el.addEventListener("click", () => toggleSelect(tokenId, el));
+  cardsGrid.appendChild(el);
+}
+
+// ─── Card selection ───────────────────────────────────────────────────────────
+function toggleSelect(tokenId, el) {
+  const idx = selectedCards.indexOf(tokenId);
+  if (idx === -1) {
+    if (selectedCards.length >= 2) {
+      // Deselect the first selected card
+      const oldId = selectedCards.shift();
+      document.querySelector(`.neocard[data-token-id="${oldId}"]`)?.classList.remove("selected");
+    }
+    selectedCards.push(tokenId);
+    el.classList.add("selected");
+  } else {
+    selectedCards.splice(idx, 1);
+    el.classList.remove("selected");
+  }
+
+  updateSlots();
+  if (selectedCards.length === 2) runPreview();
+  else {
+    previewBox.classList.remove("visible");
+    fuseBtn.textContent = "Select 2 cards to fuse";
+    fuseBtn.disabled = true;
+  }
+}
+
+// ─── Update fusion slots ──────────────────────────────────────────────────────
+function updateSlots() {
+  const fillSlot = (slot, tokenId) => {
+    if (tokenId !== undefined) {
+      slot.classList.add("filled");
+      slot.innerHTML = `<div style="font-size:1.3rem;margin-bottom:0.3rem">🃏</div><strong>Card #${tokenId}</strong>`;
+    } else {
+      slot.classList.remove("filled");
+      slot.innerHTML = `<div style="font-size:1.5rem;margin-bottom:0.3rem">🃏</div>Select Card`;
+    }
+  };
+  fillSlot(slotA, selectedCards[0]);
+  fillSlot(slotB, selectedCards[1]);
+}
+
+// ─── Preview fusion ───────────────────────────────────────────────────────────
+async function runPreview() {
+  try {
+    const [tokenA, tokenB] = selectedCards;
+    const bonus = await fusionContract.fusionBonus();
+    const [mergedPoints, mergedBadges, projectedTier] = await fusionContract.previewFusion(tokenA, tokenB);
+
+    document.getElementById("prevPoints").textContent = Number(mergedPoints).toLocaleString();
+    document.getElementById("prevBadges").textContent = Number(mergedBadges);
+    document.getElementById("prevTier").textContent   = TIER_NAMES[Number(projectedTier)] || "Unknown";
+    document.getElementById("prevBonus").textContent  = "+" + Number(bonus).toLocaleString() + " pts";
+
+    previewBox.classList.add("visible");
+    fuseBtn.textContent = `Fuse Card #${tokenA} + Card #${tokenB}`;
+    fuseBtn.disabled = false;
+  } catch (err) {
+    showStatus("Preview failed: " + err.message, "error");
+  }
+}
+
+// ─── Execute fusion ───────────────────────────────────────────────────────────
+fuseBtn.addEventListener("click", async () => {
+  if (selectedCards.length !== 2) return;
+  const [tokenA, tokenB] = selectedCards;
+
+  fuseBtn.disabled = true;
+  fuseBtn.textContent = "Approving...";
+
+  try {
+    // Check approval
+    const isApproved = await neoCardContract.isApprovedForAll(userAddress, CONTRACT_ADDRESSES.NeoCardFusion);
+    if (!isApproved) {
+      showStatus("Approving NeoCardFusion to manage your cards...", "info");
+      const approveTx = await neoCardContract.setApprovalForAll(CONTRACT_ADDRESSES.NeoCardFusion, true);
+      await approveTx.wait();
+    }
+
+    fuseBtn.textContent = "Fusing...";
+    showStatus("Sending fusion transaction...", "info");
+
+    const tx = await fusionContract.fuse(tokenA, tokenB);
+    showStatus(`Transaction sent: ${tx.hash.slice(0,12)}... Waiting for confirmation...`, "info");
+
+    const receipt = await tx.wait();
+
+    // Parse Fused event to get new token ID
+    const iface = new ethers.Interface([
+      "event Fused(address indexed user, uint256 indexed burnedA, uint256 indexed burnedB, uint256 mintedTokenId, uint256 totalPoints, uint256 totalBadges, uint8 newTier)"
+    ]);
+    let newTokenId = "?";
+    for (const log of receipt.logs) {
+      try {
+        const parsed = iface.parseLog(log);
+        if (parsed?.name === "Fused") {
+          newTokenId = parsed.args.mintedTokenId.toString();
+          break;
+        }
+      } catch (_) {}
+    }
+
+    showStatus(`Fusion successful! New NeoCard #${newTokenId} minted. Reloading cards...`, "success");
+    selectedCards = [];
+    previewBox.classList.remove("visible");
+    await loadCards();
+
+  } catch (err) {
+    const msg = err?.reason || err?.shortMessage || err.message;
+    showStatus("Fusion failed: " + msg, "error");
+    fuseBtn.disabled = false;
+    fuseBtn.textContent = `Fuse Card #${tokenA} + Card #${tokenB}`;
+  }
+});
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function showStatus(msg, type = "info") {
+  statusEl.textContent = msg;
+  statusEl.className = type;
+}
+function clearStatus() {
+  statusEl.textContent = "";
+  statusEl.className = "";
+}
+</script>
+
+</body>
+</html>
